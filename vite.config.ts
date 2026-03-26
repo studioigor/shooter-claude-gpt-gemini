@@ -1,7 +1,7 @@
 import { defineConfig } from 'vite';
 
 export default defineConfig({
-  base: '/shooter-claude-gpt-gemini/',
+  base: process.env.BUILD_TARGET === 'electron' ? './' : '/shooter-claude-gpt-gemini/',
   build: {
     outDir: 'docs',
   },

@@ -200,6 +200,20 @@ body::before {
     var(--shadow);
 }
 
+body.electron-app .app-shell {
+  min-height: 100vh;
+  padding: 0;
+}
+
+body.electron-app .game-shell {
+  width: 100vw;
+  height: 100vh;
+  max-width: none;
+  max-height: none;
+  border: 0;
+  box-shadow: none;
+}
+
 /* Scan-line overlay on the entire game shell */
 .game-shell::after {
   content: "";

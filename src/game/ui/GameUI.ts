@@ -3,6 +3,7 @@ import type { HudSnapshot, LevelDefinition, SettingsState } from '../core/types'
 interface GameUiCallbacks {
   onStartNewCampaign: () => void;
   onContinueCheckpoint: () => void;
+  onExitGame: () => void;
   onOpenSettings: () => void;
   onCloseSettings: () => void;
   onResume: () => void;
@@ -142,6 +143,7 @@ export class GameUI {
                 <button class="action-btn" id="startCampaignBtn">New Campaign</button>
                 <button class="action-btn alt" id="continueBtn">Continue Checkpoint</button>
                 <button class="action-btn subtle" id="bootSettingsBtn">Settings</button>
+                <button class="action-btn subtle" id="bootExitBtn">Exit Game</button>
               </div>
             </div>
           </div>
@@ -167,6 +169,7 @@ export class GameUI {
                 <button class="action-btn alt" id="resumeBtn">Resume</button>
                 <button class="action-btn subtle" id="pauseSettingsBtn">Settings</button>
                 <button class="action-btn subtle" id="pauseRestartBtn">Restart Campaign</button>
+                <button class="action-btn subtle" id="pauseExitBtn">Exit Game</button>
               </div>
             </div>
           </div>
@@ -178,6 +181,7 @@ export class GameUI {
               <div class="button-row">
                 <button class="action-btn alt" id="restartCheckpointBtn">Restart Checkpoint</button>
                 <button class="action-btn subtle" id="restartCampaignBtn">Restart Campaign</button>
+                <button class="action-btn subtle" id="deathExitBtn">Exit Game</button>
               </div>
             </div>
           </div>
@@ -189,6 +193,7 @@ export class GameUI {
               <div class="button-row">
                 <button class="action-btn alt" id="nextBtn">Next Act</button>
                 <button class="action-btn subtle" id="victoryRestartBtn">Restart Campaign</button>
+                <button class="action-btn subtle" id="victoryExitBtn">Exit Game</button>
               </div>
             </div>
           </div>
@@ -204,6 +209,7 @@ export class GameUI {
                 <div class="setting-row"><label for="settingMusic">Music volume</label><input id="settingMusic" type="range" min="0" max="1" step="0.05"></div>
                 <div class="setting-row"><label for="settingSfx">SFX volume</label><input id="settingSfx" type="range" min="0" max="1" step="0.05"></div>
                 <div class="setting-row"><label for="settingShake">Screen shake</label><input id="settingShake" type="range" min="0" max="1.2" step="0.05"></div>
+                <div class="setting-row"><label for="settingBrightness">Brightness</label><input id="settingBrightness" type="range" min="0.65" max="1.35" step="0.05"></div>
                 <div class="setting-row"><label for="settingCrosshair">Show crosshair</label><input id="settingCrosshair" type="checkbox"></div>
                 <div class="setting-row"><label for="settingFpsToggle">Show FPS</label><input id="settingFpsToggle" type="checkbox"></div>
               </div>
@@ -280,15 +286,19 @@ export class GameUI {
   private bindButtons(): void {
     this.get('#startCampaignBtn').addEventListener('click', () => this.callbacks.onStartNewCampaign());
     this.get('#continueBtn').addEventListener('click', () => this.callbacks.onContinueCheckpoint());
+    this.get('#bootExitBtn').addEventListener('click', () => this.callbacks.onExitGame());
     this.get('#bootSettingsBtn').addEventListener('click', () => this.callbacks.onOpenSettings());
     this.get('#briefingSettingsBtn').addEventListener('click', () => this.callbacks.onOpenSettings());
     this.get('#resumeBtn').addEventListener('click', () => this.callbacks.onResume());
     this.get('#pauseSettingsBtn').addEventListener('click', () => this.callbacks.onOpenSettings());
     this.get('#pauseRestartBtn').addEventListener('click', () => this.callbacks.onRestartCampaign());
+    this.get('#pauseExitBtn').addEventListener('click', () => this.callbacks.onExitGame());
     this.get('#restartCheckpointBtn').addEventListener('click', () => this.callbacks.onRestartCheckpoint());
     this.get('#restartCampaignBtn').addEventListener('click', () => this.callbacks.onRestartCampaign());
+    this.get('#deathExitBtn').addEventListener('click', () => this.callbacks.onExitGame());
     this.get('#nextBtn').addEventListener('click', () => this.callbacks.onNext());
     this.get('#victoryRestartBtn').addEventListener('click', () => this.callbacks.onRestartCampaign());
+    this.get('#victoryExitBtn').addEventListener('click', () => this.callbacks.onExitGame());
     this.get('#briefingConfirmBtn').addEventListener('click', () => this.callbacks.onConfirmBriefing());
     this.get('#closeSettingsBtn').addEventListener('click', () => this.callbacks.onCloseSettings());
 
@@ -305,6 +315,7 @@ export class GameUI {
     bindRange('#settingMusic', 'musicVolume', Number);
     bindRange('#settingSfx', 'sfxVolume', Number);
     bindRange('#settingShake', 'screenShake', Number);
+    bindRange('#settingBrightness', 'brightness', Number);
 
     this.get('#settingCrosshair').addEventListener('change', (event) => {
       this.callbacks.onSettingsChanged({ showCrosshair: (event.target as HTMLInputElement).checked });
@@ -321,6 +332,7 @@ export class GameUI {
     (this.get('#settingMusic') as HTMLInputElement).value = String(settings.musicVolume);
     (this.get('#settingSfx') as HTMLInputElement).value = String(settings.sfxVolume);
     (this.get('#settingShake') as HTMLInputElement).value = String(settings.screenShake);
+    (this.get('#settingBrightness') as HTMLInputElement).value = String(settings.brightness);
     (this.get('#settingCrosshair') as HTMLInputElement).checked = settings.showCrosshair;
     (this.get('#settingFpsToggle') as HTMLInputElement).checked = settings.showFps;
   }

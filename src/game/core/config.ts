@@ -29,6 +29,7 @@ export const DEFAULT_SETTINGS: SettingsState = {
   musicVolume: 0.55,
   sfxVolume: 0.8,
   screenShake: 0.9,
+  brightness: 1,
   showCrosshair: true,
   showFps: true,
 };

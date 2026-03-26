@@ -214,6 +214,8 @@ type KeyBindings = {
 };
 
 export class GameScene extends Phaser.Scene {
+  private static readonly MAX_SIM_STEP = 1 / 120;
+
   private readonly hooks: RuntimeHooks;
   private readonly payload: BootPayload;
 
@@ -791,21 +793,26 @@ export class GameScene extends Phaser.Scene {
     const combatIntensity = clamp(this.enemies.filter((enemy) => !enemy.dead && (enemy.state === 'chase' || enemy.state === 'windup' || enemy.state === 'charge')).length / 6, 0, 1);
     this.music_.update(this.settings, combatIntensity, this.bossPhase);
 
-    this.handleInput(dt, time);
-    this.updateDoors(dt);
-    this.updateEnemies(dt);
-    this.updatePlasmaProjectiles(dt);
-    this.updatePickups();
-    this.updateCheckpoints();
-    this.updateTriggers();
-    this.updateParticles(dt);
-    this.updateFloatingTexts(dt);
-    this.updateWeaponAnim(dt);
-    this.updateContextPrompt();
+    const steps = Math.max(1, Math.ceil(dt / GameScene.MAX_SIM_STEP));
+    const stepDt = dt / steps;
 
-    if (pointInZone(this.player.x, this.player.y, LEVELS[this.currentLevel].exit.zone) && this.extractionUnlocked) {
-      this.finishRun(true);
-      return;
+    for (let step = 0; step < steps; step++) {
+      this.handleInput(stepDt, time, step === 0);
+      this.updateDoors(stepDt);
+      this.updateEnemies(stepDt);
+      this.updatePlasmaProjectiles(stepDt);
+      this.updatePickups();
+      this.updateCheckpoints();
+      this.updateTriggers();
+      this.updateParticles(stepDt);
+      this.updateFloatingTexts(stepDt);
+      this.updateWeaponAnim(stepDt);
+      this.updateContextPrompt();
+
+      if (pointInZone(this.player.x, this.player.y, LEVELS[this.currentLevel].exit.zone) && this.extractionUnlocked) {
+        this.finishRun(true);
+        return;
+      }
     }
 
     this.renderScene();
@@ -813,7 +820,7 @@ export class GameScene extends Phaser.Scene {
     this.updateHud(dt);
   }
 
-  private handleInput(dt: number, time: number): void {
+  private handleInput(dt: number, time: number, allowDiscreteInput: boolean): void {
     const justDown = Phaser.Input.Keyboard.JustDown;
     const player = this.player;
     let moved = false;
@@ -868,7 +875,7 @@ export class GameScene extends Phaser.Scene {
       player.velY = lerp(player.velY, 0, Math.min(1, dt * 10));
     }
 
-    if (justDown(this.keys.SPACE) && player.z <= 0.5) {
+    if (allowDiscreteInput && justDown(this.keys.SPACE) && player.z <= 0.5) {
       if (player.dashCooldown <= 0) {
         let dashX = inputX;
         let dashY = inputY;
@@ -897,7 +904,7 @@ export class GameScene extends Phaser.Scene {
       }
     }
 
-    if (justDown(this.keys.Q) && player.meleeCooldown <= 0) {
+    if (allowDiscreteInput && justDown(this.keys.Q) && player.meleeCooldown <= 0) {
       this.performMelee();
       player.meleeCooldown = MELEE_COOLDOWN;
       this.sound_.melee();
@@ -940,6 +947,7 @@ export class GameScene extends Phaser.Scene {
     this.isSprinting = moved && wantsSprint;
 
     if (this.mouseDown && this.pointerLocked) this.tryFire(time);
+    if (!allowDiscreteInput) return;
     if (justDown(this.keys.E)) this.tryOpenDoor();
     if (justDown(this.keys.ONE) && player.hasWeapon.pistol) this.setWeapon('pistol');
     if (justDown(this.keys.TWO) && player.hasWeapon.shotgun) this.setWeapon('shotgun');
@@ -2324,6 +2332,7 @@ Kills ${this.killCount} | Accuracy ${this.getAccuracy()}% | Time ${formatTime(th
     let stepY = 0;
     let sideDistX = 0;
     let sideDistY = 0;
+    let side = 0;
     if (rayDirX < 0) {
       stepX = -1;
       sideDistX = (ox - mapX) * deltaDistX;
@@ -2342,9 +2351,11 @@ Kills ${this.killCount} | Accuracy ${this.getAccuracy()}% | Time ${formatTime(th
       if (sideDistX < sideDistY) {
         sideDistX += deltaDistX;
         mapX += stepX;
+        side = 0;
       } else {
         sideDistY += deltaDistY;
         mapY += stepY;
+        side = 1;
       }
       if (mapX < 0 || mapY < 0 || mapX >= this.mapW || mapY >= this.mapH) break;
       const tile = this.levelMap[mapY][mapX];
@@ -2353,7 +2364,7 @@ Kills ${this.killCount} | Accuracy ${this.getAccuracy()}% | Time ${formatTime(th
           const door = this.doors[`${mapX},${mapY}`];
           if (door && door.open >= 0.9) continue;
         }
-        return sideDistX - deltaDistX < sideDistY - deltaDistY ? sideDistX - deltaDistX : sideDistY - deltaDistY;
+        return side === 0 ? sideDistX - deltaDistX : sideDistY - deltaDistY;
       }
     }
     return MAX_VIEW_DIST;
@@ -2432,39 +2443,16 @@ Kills ${this.killCount} | Accuracy ${this.getAccuracy()}% | Time ${formatTime(th
       for (let x = 0; x < SCREEN_W; x++) {
         const tx = Math.floor(floorX * TEX_SIZE) & TEX_MASK;
         const ty = Math.floor(floorY * TEX_SIZE) & TEX_MASK;
-        let rBoost = 0;
-        let gBoost = 0;
-        let bBoost = 0;
-        
-        for (const light of this.dynamicLights) {
-          const dsq = distSq(light.x, light.y, floorX, floorY);
-          if (dsq < light.radius * light.radius) {
-            const falloff = 1 - Math.sqrt(dsq) / light.radius;
-            rBoost += light.r * falloff;
-            gBoost += light.g * falloff;
-            bBoost += light.b * falloff;
-          }
-        }
-        for (const zone of this.lightZones) {
-          const dsq = distSq(zone.x, zone.y, floorX, floorY);
-          if (dsq < zone.radius * zone.radius) {
-            const falloff = 1 - Math.sqrt(dsq) / zone.radius;
-            const flicker = zone.flicker ? 0.7 + this.flickerValues[zone._idx] * 0.3 : 1;
-            rBoost += zone.r * falloff * flicker * 80;
-            gBoost += zone.g * falloff * flicker * 80;
-            bBoost += zone.b * falloff * flicker * 80;
-          }
-        }
-        
+        const lightBoost = this.accumulateLightBoost(floorX, floorY);
         const pixel = isFloor ? floorTex[ty * TEX_SIZE + tx] : ceilTex[ty * TEX_SIZE + tx];
         const pixelR = pixel & 255;
         const pixelG = (pixel >> 8) & 255;
         const pixelB = (pixel >> 16) & 255;
         const luma = (pixelR * 0.299 + pixelG * 0.587 + pixelB * 0.114) / 255;
         const bumpFactor = 0.5 + luma * 1.5;
-        const r = Math.min(255, pixelR * fog + rBoost * bumpFactor);
-        const g = Math.min(255, pixelG * fog + gBoost * bumpFactor);
-        const b = Math.min(255, pixelB * fog + bBoost * bumpFactor);
+        const r = Math.min(255, pixelR * fog + lightBoost.r * bumpFactor);
+        const g = Math.min(255, pixelG * fog + lightBoost.g * bumpFactor);
+        const b = Math.min(255, pixelB * fog + lightBoost.b * bumpFactor);
         this.buf[y * SCREEN_W + x] = rgbToABGR(r, g, b);
 
         floorX += stepX;
@@ -2566,28 +2554,7 @@ Kills ${this.killCount} | Accuracy ${this.getAccuracy()}% | Time ${formatTime(th
       const sideFactor = side === 1 ? 0.7 : 1;
       const hitX = this.player.x + perpWallDist * rayDirX;
       const hitY = this.player.y + perpWallDist * rayDirY;
-      let rBoost = 0;
-      let gBoost = 0;
-      let bBoost = 0;
-      for (const light of this.dynamicLights) {
-        const dsq = distSq(light.x, light.y, hitX, hitY);
-        if (dsq < light.radius * light.radius) {
-          const falloff = 1 - Math.sqrt(dsq) / light.radius;
-          rBoost += light.r * falloff;
-          gBoost += light.g * falloff;
-          bBoost += light.b * falloff;
-        }
-      }
-      for (const zone of this.lightZones) {
-        const dsq = distSq(zone.x, zone.y, hitX, hitY);
-        if (dsq < zone.radius * zone.radius) {
-          const falloff = 1 - Math.sqrt(dsq) / zone.radius;
-          const flicker = zone.flicker ? 0.7 + this.flickerValues[zone._idx] * 0.3 : 1;
-          rBoost += zone.r * falloff * flicker * 80;
-          gBoost += zone.g * falloff * flicker * 80;
-          bBoost += zone.b * falloff * flicker * 80;
-        }
-      }
+      const lightBoost = this.accumulateLightBoost(hitX, hitY);
       for (let y = drawStart; y <= drawEnd; y++) {
         const texY = Math.floor(texPos) & TEX_MASK;
         texPos += step;
@@ -2598,9 +2565,9 @@ Kills ${this.killCount} | Accuracy ${this.getAccuracy()}% | Time ${formatTime(th
         const pixelB = (pixel >> 16) & 255;
         const luma = (pixelR * 0.299 + pixelG * 0.587 + pixelB * 0.114) / 255;
         const bumpFactor = 0.5 + luma * 1.5;
-        const r = Math.min(255, pixelR * shade + rBoost * bumpFactor);
-        const g = Math.min(255, pixelG * shade + gBoost * bumpFactor);
-        const b = Math.min(255, pixelB * shade + bBoost * bumpFactor);
+        const r = Math.min(255, pixelR * shade + lightBoost.r * bumpFactor);
+        const g = Math.min(255, pixelG * shade + lightBoost.g * bumpFactor);
+        const b = Math.min(255, pixelB * shade + lightBoost.b * bumpFactor);
         this.buf[y * SCREEN_W + x] = rgbToABGR(r, g, b);
       }
     }
@@ -2636,6 +2603,7 @@ Kills ${this.killCount} | Accuracy ${this.getAccuracy()}% | Time ${formatTime(th
     }> = [];
 
     for (const enemy of this.enemies) {
+      if (enemy.dead) continue;
       const sprite = enemy.dead
         ? this.sprites_.enemyDead
         : enemy.archetype === 'trooper'
@@ -2800,18 +2768,7 @@ Kills ${this.killCount} | Accuracy ${this.getAccuracy()}% | Time ${formatTime(th
       const drawStartX = Math.max(0, Math.floor(spriteScreenX - spriteWidth / 2));
       const drawEndX = Math.min(SCREEN_W - 1, Math.floor(spriteScreenX + spriteWidth / 2));
       const fog = clamp(1 - Math.sqrt(sprite.dist) / MAX_VIEW_DIST, 0.1, 1);
-      let rBoost = 0;
-      let gBoost = 0;
-      let bBoost = 0;
-      for (const light of this.dynamicLights) {
-        const dsq = distSq(light.x, light.y, sprite.x, sprite.y);
-        if (dsq < light.radius * light.radius * 1.5) {
-          const falloff = 1 - Math.sqrt(dsq) / (light.radius * 1.2);
-          rBoost += light.r * falloff;
-          gBoost += light.g * falloff;
-          bBoost += light.b * falloff;
-        }
-      }
+      const lightBoost = this.accumulateLightBoost(sprite.x, sprite.y, 80, 1.2);
       const flashBoost = sprite.flash ? 1 + sprite.flash * 2.2 : 1;
       const shadowY = Math.min(SCREEN_H - 2, drawEndY + Math.max(0, Math.floor(Math.abs(bobOffset) * 0.9)));
       if (sprite.shadowAlpha > 0) {
@@ -2860,9 +2817,9 @@ Kills ${this.killCount} | Accuracy ${this.getAccuracy()}% | Time ${formatTime(th
             const pixel = sprite.sprite.data[texY * sprite.sprite.w + texX];
             if (!pixel) continue;
 
-            let r = Math.min(255, (pixel & 255) * fog * flashBoost + rBoost);
-            let g = Math.min(255, ((pixel >> 8) & 255) * fog * flashBoost + gBoost);
-            let b = Math.min(255, ((pixel >> 16) & 255) * fog * flashBoost + bBoost);
+            let r = Math.min(255, (pixel & 255) * fog * flashBoost + lightBoost.r);
+            let g = Math.min(255, ((pixel >> 8) & 255) * fog * flashBoost + lightBoost.g);
+            let b = Math.min(255, ((pixel >> 16) & 255) * fog * flashBoost + lightBoost.b);
 
             if (!isFront) {
                r = Math.max(0, r - 45);
@@ -2952,6 +2909,41 @@ Kills ${this.killCount} | Accuracy ${this.getAccuracy()}% | Time ${formatTime(th
         this.addPixelLight(y * SCREEN_W + x, r, g, b, alpha * falloff * falloff);
       }
     }
+  }
+
+  private accumulateLightBoost(
+    sampleX: number,
+    sampleY: number,
+    zoneScale = 80,
+    lightRadiusScale = 1,
+  ): { r: number; g: number; b: number } {
+    let r = 0;
+    let g = 0;
+    let b = 0;
+
+    for (const light of this.dynamicLights) {
+      const radius = light.radius * lightRadiusScale;
+      const radiusSq = radius * radius;
+      const dsq = distSq(light.x, light.y, sampleX, sampleY);
+      if (dsq >= radiusSq) continue;
+      const falloff = 1 - dsq / radiusSq;
+      r += light.r * falloff;
+      g += light.g * falloff;
+      b += light.b * falloff;
+    }
+
+    for (const zone of this.lightZones) {
+      const radiusSq = zone.radius * zone.radius;
+      const dsq = distSq(zone.x, zone.y, sampleX, sampleY);
+      if (dsq >= radiusSq) continue;
+      const flicker = zone.flicker ? 0.7 + this.flickerValues[zone._idx] * 0.3 : 1;
+      const falloff = 1 - dsq / radiusSq;
+      r += zone.r * falloff * flicker * zoneScale;
+      g += zone.g * falloff * flicker * zoneScale;
+      b += zone.b * falloff * flicker * zoneScale;
+    }
+
+    return { r, g, b };
   }
 
   private addAtmospherePass(halfH: number): void {
@@ -3046,6 +3038,7 @@ Kills ${this.killCount} | Accuracy ${this.getAccuracy()}% | Time ${formatTime(th
   }
 
   private postProcess(): void {
+    const brightness = this.settings.brightness;
     for (let index = 0; index < SCREEN_W * SCREEN_H; index++) {
       const pixel = this.buf[index];
       let r = pixel & 255;
@@ -3068,6 +3061,12 @@ Kills ${this.killCount} | Accuracy ${this.getAccuracy()}% | Time ${formatTime(th
       r = clamp(r + grain - 1, 0, 255);
       g = clamp(g + grain - 1, 0, 255);
       b = clamp(b + grain - 1, 0, 255);
+
+      if (brightness !== 1) {
+        r = clamp(Math.round(r * brightness), 0, 255);
+        g = clamp(Math.round(g * brightness), 0, 255);
+        b = clamp(Math.round(b * brightness), 0, 255);
+      }
 
       this.buf[index] = (255 << 24) | (b << 16) | (g << 8) | r;
     }
