@@ -22,3 +22,18 @@ https://studioigor.github.io/shooter-claude-gpt-gemini/
 npm install
 npm run dev
 ```
+
+### Electron
+
+Запуск десктоп-версии в режиме разработки:
+
+```bash
+npm install
+npm run electron:dev
+```
+
+Сборка рендерера для Electron и запуск локального desktop build:
+
+```bash
+npm run electron:start
+```

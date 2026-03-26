@@ -16,10 +16,20 @@ setTimeout(() => { generateTextures(); generateSprites(); }, 0);
 const mount = document.querySelector<HTMLDivElement>('#app');
 if (!mount) throw new Error('Missing app mount');
 
+if (navigator.userAgent.includes('Electron')) {
+  document.body.classList.add('electron-app');
+}
+
 let settings: SettingsState = loadSettings();
 let activeGame: Phaser.Game | null = null;
 let activeScene: GameScene | null = null;
 let pendingBriefing: { mode: 'new' | 'next'; actIndex: number } | null = null;
+
+function exitGame(): void {
+  if (navigator.userAgent.includes('Electron')) {
+    window.close();
+  }
+}
 
 function checkpointLabel(save: SaveState | null): string | undefined {
   if (!save) return undefined;
@@ -41,6 +51,7 @@ const ui = new GameUI(mount, settings, {
     }
     launch({ startActIndex: checkpoint.actIndex, checkpoint });
   },
+  onExitGame: () => exitGame(),
   onOpenSettings: () => ui.showSettings(),
   onCloseSettings: () => ui.hideSettings(),
   onResume: () => activeScene?.togglePause(false),
@@ -129,7 +140,11 @@ function launch(payload: BootPayload): void {
       mouse: true,
     },
     audio: { noAudio: true },
-    render: { pixelArt: true },
+    render: {
+      pixelArt: true,
+      powerPreference: 'high-performance',
+      desynchronized: true,
+    },
   });
 }
 

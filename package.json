@@ -3,9 +3,15 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
+  "main": "electron/main.mjs",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "build": "npm run build:web",
+    "build:web": "tsc -b && vite build",
+    "build:electron": "tsc -b && BUILD_TARGET=electron vite build --outDir dist-electron",
+    "electron": "electron .",
+    "electron:dev": "node scripts/dev-electron.mjs",
+    "electron:start": "npm run build:electron && electron .",
     "test": "vitest run"
   },
   "dependencies": {
@@ -13,6 +19,7 @@
   },
   "devDependencies": {
     "@types/node": "^22.13.4",
+    "electron": "^35.0.0",
     "typescript": "^5.7.3",
     "vite": "^6.2.0",
     "vitest": "^3.0.8"

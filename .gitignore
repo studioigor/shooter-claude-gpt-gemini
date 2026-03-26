@@ -1,4 +1,5 @@
 node_modules
+dist-electron
 *.tsbuildinfo
 *.local
 .DS_Store

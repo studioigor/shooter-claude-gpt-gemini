@@ -299,6 +299,7 @@ export interface SettingsState {
   musicVolume: number;
   sfxVolume: number;
   screenShake: number;
+  brightness: number;
   showCrosshair: boolean;
   showFps: boolean;
 }

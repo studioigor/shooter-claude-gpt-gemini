@@ -36,6 +36,7 @@ describe('storage', () => {
       musicVolume: 0.4,
       sfxVolume: 0.7,
       screenShake: 1,
+      brightness: 1.1,
       showCrosshair: true,
       showFps: false,
     });
